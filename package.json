@@ -1,0 +1,20 @@
+{
+    "author": {
+        "email": "joshs@santsys.com",
+        "name": "josh ssantomieri",
+        "url": "http://www.santsys.com/"
+    },
+    "dependencies": {
+        "net": "^1.0.2"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git://github.com/santsys/node-tacacs-plus.git"
+    },
+    "engines": { "node": ">=6.0.0" },
+    "keywords": ["tacacs", "tacacs+", "tacacs plus"],
+    "description": "tacacs+ helpers for node",
+    "main": "./tacacs-plus",
+    "name": "tacacs-plus",
+    "version": "1.0.0"
+}

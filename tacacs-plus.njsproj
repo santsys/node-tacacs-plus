@@ -33,6 +33,7 @@
     <Compile Include="examples\example.js" />
     <Compile Include="tacacs-plus.js" />
     <Content Include=".gitignore" />
+    <Content Include="LICENSE" />
     <Content Include="package.json" />
     <Content Include="README.md" />
   </ItemGroup>

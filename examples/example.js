@@ -1,6 +1,6 @@
 ﻿const net = require('net');
 const crypto = require('crypto');
-const tacacs = require('./tacacs-plus');
+const tacacs = require('../tacacs-plus');
 
 // SAMPLE SERVER
 

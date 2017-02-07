@@ -84,7 +84,7 @@ var client = net.connect(49, '127.0.0.1', function () {
     // now that we've connected, send the first auth packet
 
     var sessionIdBytes = crypto.randomBytes(4);
-    var sessionId = sessionIdBytes.readUInt32BE(0);
+    var sessionId = Math.abs(sessionIdBytes.readInt32BE(0));
 
     // create the auth start body
     var authStart = tacacs.createAuthStart({
@@ -100,13 +100,7 @@ var client = net.connect(49, '127.0.0.1', function () {
 
     var version = tacacs.createVersion(tacacs.TAC_PLUS_MAJOR_VER, tacacs.TAC_PLUS_MINOR_VER_DEFAULT);
     var sequenceNumber = 1;
-    var encryptionHash = tacacs.createDataHash(
-        sessionId,
-        'your_key',
-        version,
-        sequenceNumber
-    );
-    var encryptedAuthStart = tacacs.encodeBytes(encryptionHash, authStart);
+    var encryptedAuthStart = tacacs.encodeByteData(sessionId, 'your_key', version, sequenceNumber, authStart);
 
     // create the tacacs+ header
     var headerOptions = {

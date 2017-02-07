@@ -132,22 +132,27 @@ exports.createDataHash = function (session_id, key, version, seq_no) {
     return hash;
 }
 
-exports.encodeBytes = function (hash, buffer) {
-    if (!buffer || !hash) {
-        throw new Error('You must specify a hash and buffer.');
+exports.encodeByteData = function (session_id, key, version, seq_no, rawData) {
+
+    var dataLen = rawData.length;
+    var bOut = Buffer.alloc(dataLen);
+
+    var prevHash;
+    for (var i = 0; i < dataLen; i += 16) {
+        var hash = exports.createDataHashWithPrevHash(session_id, key, version, seq_no, prevHash);
+
+        for (var j = 0; j < 16 && dataLen > (i + j); j++) {
+            bOut[i + j] = rawData[i + j] ^ hash[j];
+        }
+
+        prevHash = hash;
     }
 
-    var newBuffer = Buffer.alloc(buffer.length);
-
-    for (var i = 0; i < buffer.length; i++) {
-        newBuffer[i] = hash[i % hash.length] ^ buffer[i];
-    }
-
-    return newBuffer;
+    return bOut;
 }
 
-exports.decodeBytes = function (hash, buffer) {
-    return exports.encodeBytes(hash, buffer);
+exports.decodeByteData = function (session_id, key, version, seq_no, rawData) {
+    return exports.encodeByteData(session_id, key, version, seq_no, rawData);
 }
 
 exports.decodeHeader = function (rawData) {
@@ -247,8 +252,7 @@ exports.decodePacket = function decodePacket(packetData) {
             }
 
             // decode the body
-            var hashToUse = exports.createDataHash(response.header.sessionId, packetData.key, response.header.versionByte, response.header.sequenceNumber);
-            response.rawData = exports.decodeBytes(hashToUse, response.rawData);
+            response.rawData = exports.decodeByteData(response.header.sessionId, packetData.key, response.header.versionByte, response.header.sequenceNumber, response.rawData);
         }
 
         // parse the response into the object, if we can

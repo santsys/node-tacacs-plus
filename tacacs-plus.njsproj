@@ -12,7 +12,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>249cef1b-263d-47a6-ae2a-9c08bf1ba9bd</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>examples\example.js</StartupFile>
+    <StartupFile>examples\client.js</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -30,6 +30,7 @@
     <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="examples\client.js" />
     <Compile Include="examples\example.js" />
     <Compile Include="tacacs-plus.js" />
     <Content Include=".gitignore" />

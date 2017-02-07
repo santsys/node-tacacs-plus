@@ -197,21 +197,14 @@ var server = net.createServer(function (c) {
         var replyOptions = {
             status: tacacs.TAC_PLUS_AUTHEN_STATUS_GETPASS,
             flags: 0x0,
-            message: 'Please enter your password.',
+            message: 'Please enter your password: ',
             data: null
         };
         var replyBytes = tacacs.createAuthReply(replyOptions);
 
         replyHeader.length = replyBytes.length;
         var headerBytes = tacacs.createHeader(replyHeader);
-
-        var encryptionHash = tacacs.createDataHash(
-            replyHeader.sessionId,
-            'your_key',
-            tacacs.createVersion(replyHeader.majorVersion, replyHeader.minorVersion),
-            replyHeader.sequenceNumber
-        );
-        var encryptedResponse = tacacs.encodeBytes(encryptionHash, replyBytes);
+        var encryptedResponse = tacacs.encodeByteData(replyHeader.sessionId, 'your_key', tacacs.createVersion(replyHeader.majorVersion, replyHeader.minorVersion), replyHeader.sequenceNumber, replyBytes);
 
         replyBytes = Buffer.concat([headerBytes, encryptedResponse]);
         c.write(replyBytes);

@@ -1,4 +1,4 @@
-﻿# tacacs-plus
+﻿# tacacs-plus [TACACS+]
 
 This is a simple TACACS+ library to help with basic encoding and decoding of TACACS+ authentication packets.
 
@@ -148,6 +148,7 @@ var packetToSend = Buffer.concat([header, encryptedAuthStart]);
 
 Here is a very simple client that sends a auth start packet to a server, then the server responds to the client... this is a very simple "getting started" sample, that requires a lot more development to implement a full workflow, but it illustrates how to start.
 
+For a more complete client example, see ```examples/client.js```.
 
 ```js
 var crypto = require('crypto');

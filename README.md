@@ -97,7 +97,7 @@ var authStartPacket = Buffer.concat([header, authStart]);
 
 # Encryption
 
-You can use the ```createDataHash```, ```encodeBytes```, and ```decodeBytes``` functions to encrypt and decrypt data packets.
+You can use the ```encodeByteData``` and ```decodeByteData``` functions to encrypt and decrypt data packets.
 
 Using encryption requires a shared secret key as well as cryptographically secure random Session ID values.
 

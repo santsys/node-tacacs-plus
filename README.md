@@ -235,7 +235,7 @@ var client = net.connect(49, '127.0.0.1', function () {
     // now that we've connected, send the first auth packet
 
     var sessionIdBytes = crypto.randomBytes(4);
-    var sessionId = sessionIdBytes.readUInt32BE(0);
+    var sessionId = Math.abs(sessionIdBytes.readInt32BE(0));
 
     // create the auth start body
     var authStart = tacacs.createAuthStart({

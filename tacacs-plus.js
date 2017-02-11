@@ -73,6 +73,26 @@ exports.TAC_PLUS_REPLY_FLAG_NOECHO = 0x01;
 // auth continue flags
 exports.TAC_PLUS_CONTINUE_FLAG_ABORT = 0x01;
 
+// authorization - authen method
+exports.TAC_PLUS_AUTHEN_METH_NOT_SET = 0x00;
+exports.TAC_PLUS_AUTHEN_METH_NONE = 0x01;
+exports.TAC_PLUS_AUTHEN_METH_KRB5 = 0x02;
+exports.TAC_PLUS_AUTHEN_METH_LINE = 0x03;
+exports.TAC_PLUS_AUTHEN_METH_ENABLE = 0x04;
+exports.TAC_PLUS_AUTHEN_METH_LOCAL = 0x05;
+exports.TAC_PLUS_AUTHEN_METH_TACACSPLUS = 0x06;
+exports.TAC_PLUS_AUTHEN_METH_GUEST = 0x08;
+exports.TAC_PLUS_AUTHEN_METH_RADIUS = 0x10;
+exports.TAC_PLUS_AUTHEN_METH_KRB4 = 0x11;
+exports.TAC_PLUS_AUTHEN_METH_RCMD = 0x20;
+
+// authorization - authen status
+exports.TAC_PLUS_AUTHOR_STATUS_PASS_ADD = 0x01;
+exports.TAC_PLUS_AUTHOR_STATUS_PASS_REPL = 0x02;
+exports.TAC_PLUS_AUTHOR_STATUS_FAIL = 0x10;
+exports.TAC_PLUS_AUTHOR_STATUS_ERROR = 0x11;
+exports.TAC_PLUS_AUTHOR_STATUS_FOLLOW = 0x21;
+
 // helpers
 function isFlagSet(value, flag) {
     return ((value & flag) == flag);
@@ -248,13 +268,15 @@ exports.decodePacket = function decodePacket(packetData) {
         // a lot of this is based on the workflow used in the server implementation
         // so you may have to do this on your own
         if (response.header.type == exports.TAC_PLUS_AUTHEN) {
+            var seqModTwo = response.header.sequenceNumber % 2;
+
             if (response.header.sequenceNumber == 1) {
                 response.data = exports.decodeAuthStart(response.rawData);
             }
-            else if ((response.header.sequenceNumber % 2) == 0) {
+            else if (seqModTwo == 0) {
                 response.data = exports.decodeAuthReply(response.rawData);
             }
-            else if ((response.header.sequenceNumber % 2) == 1) {
+            else if (seqModTwo == 1) {
                 response.data = exports.decodeAuthContinue(response.rawData);
             }
         }
@@ -265,6 +287,8 @@ exports.decodePacket = function decodePacket(packetData) {
 
     return response;
 }
+
+// *** Authentication ***
 
 exports.createAuthStart = function (options) {
 
@@ -506,7 +530,6 @@ exports.createAuthContinue = function (options) {
     return resp;
 }
 
-
 exports.decodeAuthContinue = function (data) {
     if (data.length < 5) {
         throw new Error('Invalid continue header length.');
@@ -528,4 +551,271 @@ exports.decodeAuthContinue = function (data) {
         userMessage: userMsg,
         data: dataMsg
     };
+}
+
+// *** Authorization ***
+exports.createAuthorizationRequest = function (options) {
+    options = options || {
+        authenMethod: exports.TAC_PLUS_AUTHEN_METH_NOT_SET,
+        privLvl: exports.TAC_PLUS_PRIV_LVL_USER,
+        authenType: exports.TAC_PLUS_AUTHEN_TYPE_ASCII,
+        authenService: exports.TAC_PLUS_AUTHEN_TYPE_NOT_SET,
+        user: '',
+        port: '',
+        remAddr: '',
+        args: []
+    };
+
+    if (options.args && !(options.args instanceof Array)) {
+        throw new Error('The args should be an array of string values.');
+    }
+
+    options.args = options.args || [];
+    options.user = options.user || '';
+    options.port = options.port || '';
+    options.remAddr = options.remAddr || '';
+
+    if (options.args.length > 255) {
+        throw new Error('You can not have more than 255 args.');
+    }
+
+    var argSize = 0;
+    for (var i = 0; i < options.args.length; i++) {
+        argSize += (options.args[i].length & 0xff);
+    }
+
+    var resp = Buffer.alloc(8 + options.user.length + options.port.length + options.remAddr.length + options.args.length + argSize);
+    var offset = 0;
+
+    resp.writeUInt8(options.authenMethod, offset++);
+    resp.writeUInt8(options.privLvl, offset++);
+    resp.writeUInt8(options.authenType, offset++);
+    resp.writeUInt8(options.authenService, offset++);
+    resp.writeUInt8(options.user.length, offset++);
+    resp.writeUInt8(options.port.length, offset++);
+    resp.writeUInt8(options.remAddr.length, offset++);
+
+    if (options.args && options.args.length > 0) {
+        resp.writeUInt8((options.args.length & 0xff), offset++);
+
+        for (var i = 0; i < options.args.length; i++) {
+            resp.writeUInt8((options.args[i].length & 0xff), offset++);
+        }
+    }
+    else {
+        resp.writeUInt8(0, offset++);
+    }
+
+    if (options.user.length > 0) {
+        resp.write(options.user, offset);
+        offset += options.user.length;
+    }
+
+    if (options.port.length > 0) {
+        resp.write(options.port, offset);
+        offset += options.port.length;
+    }
+
+    if (options.remAddr.length > 0) {
+        resp.write(options.remAddr, offset);
+        offset += options.remAddr.length;
+    }
+
+    if (options.args && options.args.length > 0) {
+        for (var i = 0; i < options.args.length; i++) {
+            var value = options.args[i];
+            if (value.length > 0xff) {
+                value = value.substring(0, 0xff);
+            }
+
+            resp.write(value, offset);
+            offset += value.length;
+        }
+    }
+
+    return resp;
+}
+
+exports.decodeAuthorizationRequest = function (data) {
+    var resp = {
+        authenMethod: exports.TAC_PLUS_AUTHEN_METH_NOT_SET,
+        privLvl: exports.TAC_PLUS_PRIV_LVL_USER,
+        authenType: exports.TAC_PLUS_AUTHEN_TYPE_ASCII,
+        authenService: exports.TAC_PLUS_AUTHEN_TYPE_NOT_SET,
+        user: '',
+        port: '',
+        remAddr: '',
+        args: []
+    };
+
+    if (data.length < 8) {
+        throw new Error('Invalid header length.');
+    }
+
+    if (!(data instanceof Buffer)) {
+        throw new Error('Data must be a Buffer.');
+    }
+
+    var offset = 0;
+    resp.authenMethod = data.readUInt8(offset++);
+    resp.privLvl = data.readUInt8(offset++);
+    resp.authenType = data.readUInt8(offset++);
+    resp.authenService = data.readUInt8(offset++);
+
+    var userLen = data.readUInt8(offset++);
+    var portLen = data.readUInt8(offset++);
+    var remAddrLen = data.readUInt8(offset++);
+    var argCnt = data.readUInt8(offset++);
+    var argLens = [];
+
+    if (argCnt > 0) {
+        for (var i = 0; i < argCnt; i++) {
+            argLens[i] = data.readUInt8(offset++);
+        }
+    }
+
+    if (userLen > 0) {
+        resp.user = data.slice(offset, offset + userLen).toString('ascii');
+        offset += userLen;
+    }
+
+    if (portLen > 0) {
+        resp.port = data.slice(offset, offset + portLen).toString('ascii');
+        offset += portLen;
+    }
+
+    if (remAddrLen > 0) {
+        resp.remAddr = data.slice(offset, offset + remAddrLen).toString('ascii');
+        offset += remAddrLen;
+    }
+
+    if (argCnt > 0) {
+        for (var i = 0; i < argCnt; i++) {
+            resp.args[i] = data.slice(offset, offset + argLens[i]).toString('ascii');
+            offset += argLens[i];
+        }
+    }
+
+    return resp;
+}
+
+exports.createAuthorizationResponse = function (options) {
+    options = options || {
+        status: exports.TAC_PLUS_AUTHOR_STATUS_ERROR,
+        args: [],
+        serverMessage: '',
+        data: ''
+    };
+
+    options.args = options.args || [];
+    options.serverMessage = options.serverMessage || '';
+    options.data = options.data || '';
+
+    if (options.args.length > 255) {
+        throw new Error('You can not have more than 255 args.');
+    }
+
+    var argCount = options.args.length;
+    var argLen = 0;
+    if (argCount > 0) {
+        for (var i = 0; i < argCount; i++) {
+            argLen += (options.args[i].length & 0xff);
+        }
+    }
+
+    var offset = 0;
+    var resp = Buffer.alloc(6 + options.serverMessage.length + options.data.length + argCount + argLen);
+
+    resp.writeUInt8(options.status & 0xff, offset++);
+    resp.writeUInt8(argCount & 0xff, offset++);
+    resp.writeUInt16BE(options.serverMessage.length & 0xffff, offset);
+    offset += 2;
+    resp.writeUInt16BE(options.data.length & 0xffff, offset);
+    offset += 2;
+
+    if (argCount > 0) {
+        for (var i = 0; i < argCount; i++) {
+            resp.writeUInt8((options.args[i].length & 0xff), offset++);
+        }
+    }
+
+    if (options.serverMessage.length > 0) {
+        if (options.serverMessage.length > 0xffff) {
+            options.serverMessage = options.serverMessage.substring(0, 0xffff);
+        }
+        resp.write(options.serverMessage, offset);
+        offset += options.serverMessage.length;
+    }
+
+    if (options.data.length > 0) {
+        if (options.data.length > 0xffff) {
+            options.data = options.data.substring(0, 0xffff);
+        }
+        resp.write(options.data, offset);
+        offset += options.data.length;
+    }
+
+    if (argCount > 0) {
+        for (var i = 0; i < argCount; i++) {
+            var value = options.args[i];
+            if (value.length > 0xff) {
+                value = value.substring(0, 0xff);
+            }
+            resp.write(value, offset);
+            offset += value.length;
+        }
+    }
+
+    return resp;
+}
+
+exports.decodeAuthorizationResponse = function (data) {
+    var resp = {
+        status: exports.TAC_PLUS_AUTHOR_STATUS_ERROR,
+        serverMessage: '',
+        data: '',
+        args: []
+    };
+
+    if (data.length < 6) {
+        throw new Error('Invalid header length.');
+    }
+
+    if (!(data instanceof Buffer)) {
+        throw new Error('Data must be a Buffer.');
+    }
+
+    var offset = 0;
+    resp.status = data.readUInt8(offset++);
+    var argCount = data.readUInt8(offset++);
+    var msgLen = data.readUInt16BE(offset);
+    offset += 2;
+    var dataLen = data.readUInt16BE(offset);
+    offset += 2;
+
+    var argLens = [];
+    if (argCount > 0) {
+        for (var i = 0; i < argCount; i++) {
+            argLens[i] = data.readUInt8(offset++);
+        }
+    }
+
+    if (msgLen > 0) {
+        resp.serverMessage = data.slice(offset, offset + msgLen).toString('ascii');
+        offset += msgLen;
+    }
+
+    if (dataLen > 0) {
+        resp.data = data.slice(offset, offset + dataLen).toString('ascii');
+        offset += dataLen;
+    }
+
+    if (argCount > 0) {
+        for (var i = 0; i < argCount; i++) {
+            resp.args[i] = data.slice(offset, offset + argLens[i]).toString('ascii');
+            offset += argLens[i];
+        }
+    }
+
+    return resp;
 }

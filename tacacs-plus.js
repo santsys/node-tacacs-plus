@@ -121,17 +121,6 @@ exports.createDataHashWithPrevHash = function (session_id, key, version, seq_no,
     return md5.digest();
 }
 
-exports.createDataHash = function (session_id, key, version, seq_no) {
-    if (!crypto) {
-        throw new Error('Encryption is not supported.');
-    }
-    var hash;
-    for (var i = 1; i <= seq_no; i++) {
-        hash = exports.createDataHashWithPrevHash(session_id, key, version, i, hash);
-    }
-    return hash;
-}
-
 exports.encodeByteData = function (session_id, key, version, seq_no, rawData) {
 
     var dataLen = rawData.length;
@@ -162,11 +151,11 @@ exports.decodeHeader = function (rawData) {
     }
 
     if (!(rawData instanceof Buffer)) {
-        throw Error('decodeHeader requires a Buffer.');
+        throw new Error('decodeHeader requires a Buffer.');
     }
 
     if (rawData.length < 12) {
-        throw Error('Invalid packet length.');
+        throw new Error('Invalid packet length.');
     }
 
     var data = rawData;

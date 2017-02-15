@@ -1,5 +1,8 @@
 ﻿# tacacs-plus [TACACS+]
 
+[![NPM](https://nodei.co/npm/tacacs-plus.png?downloads=true&downloadRank=true&stars=true)](https://nodei.co/npm/tacacs-plus/)
+
+
 This is a simple TACACS+ library to help with basic encoding and decoding of TACACS+ authentication and authorization packets.
 
 More information on TACACS+ can be found here, [https://tools.ietf.org/html/draft-ietf-opsawg-tacacs-05](https://tools.ietf.org/html/draft-ietf-opsawg-tacacs-05).

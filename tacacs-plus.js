@@ -280,6 +280,10 @@ exports.decodePacket = function decodePacket(packetData) {
                 response.data = exports.decodeAuthContinue(response.rawData);
             }
         }
+
+        if (response.header.type == exports.TAC_PLUS_AUTHOR) {
+            response.data = exports.decodeAuthorizationResponse(response.rawData);
+        }
     }
     else {
         console.log('No body data to decode.');

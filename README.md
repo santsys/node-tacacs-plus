@@ -327,3 +327,13 @@ var decodedResp = tacacs.decodeAuthorizationResponse(authorResp);
 
 console.log('Author Response: ' + JSON.stringify(decodedResp));
 ```
+
+# Testing Server
+A good and easy to spin up testing server is tac_plus running in a docker container. If you have docker setup, simply run the following to start the tac_plus container. More inforamtion is available here, https://hub.docker.com/r/dchidell/docker-tacacs.
+
+```cmd
+sudo docker run -it --rm -p 49:49 dchidell/docker-tacacs
+```
+
+Then you can point your client to the docker server IP on port 49 and use the shared key 'ciscotacacskey' and the user 'iosuser' with the password 'cisco'.
+

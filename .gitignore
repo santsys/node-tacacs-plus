@@ -54,3 +54,4 @@ obj/
 # dotenv environment variables file
 .env
 
+examples/test-client.js

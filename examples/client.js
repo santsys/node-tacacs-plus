@@ -1,4 +1,4 @@
-﻿const net = require('net');
+const net = require('net');
 const crypto = require('crypto');
 const tacacs = require('../tacacs-plus');
 const readline = require('readline');
@@ -83,16 +83,16 @@ client.on('data', function (data) {
             console.log('Client: Received Session Id: ' + resp.header.sessionId);
             //console.log('Client: Decoded Response: ' + JSON.stringify(resp, null, 2));
 
-            if (resp.data.status == tacacs.TAC_PLUS_AUTHEN_STATUS_ERROR) {
+            if (resp.data.status === tacacs.TAC_PLUS_AUTHEN_STATUS_ERROR) {
                 console.log('Client: Authentication error!');
                 client.end();
             }
-            else if (resp.data.status == tacacs.TAC_PLUS_AUTHEN_STATUS_FAIL) {
+            else if (resp.data.status === tacacs.TAC_PLUS_AUTHEN_STATUS_FAIL) {
                 console.log('Client: *** Authentication Failed! ***');
                 client.end();
             }
-            else if (resp.data.status == tacacs.TAC_PLUS_AUTHEN_STATUS_GETUSER
-                || resp.data.status == tacacs.TAC_PLUS_AUTHEN_STATUS_GETPASS) {
+            else if (resp.data.status === tacacs.TAC_PLUS_AUTHEN_STATUS_GETUSER
+                || resp.data.status === tacacs.TAC_PLUS_AUTHEN_STATUS_GETPASS) {
 
                 // prompt the user for information
                 promptUser(resp.data.message, function (answer) {
@@ -121,7 +121,7 @@ client.on('data', function (data) {
                     client.write(packetToSend);
                 });
             }
-            else if (resp.data.status == tacacs.TAC_PLUS_AUTHEN_STATUS_PASS) {
+            else if (resp.data.status === tacacs.TAC_PLUS_AUTHEN_STATUS_PASS) {
                 console.log('Client: *** User Authenticated ***');
                 console.log('Client: ' + JSON.stringify(resp.data, null, 2));
                 client.end();
@@ -133,6 +133,7 @@ client.on('data', function (data) {
                     userMessage: null,
                     data: null
                 };
+                var newSeq = resp.header.sequenceNumber + 1;
                 var tContinue = tacacs.createAuthContinue(tRespOptions);
                 var encryptedContinue = tacacs.encodeByteData(resp.header.sessionId, shared_secret, resp.header.versionByte, newSeq, tContinue);
 
@@ -144,7 +145,7 @@ client.on('data', function (data) {
                     flags: resp.header.flags,
                     sessionId: resp.header.sessionId,
                     length: encryptedContinue.length
-                }
+                };
                 var header = tacacs.createHeader(tRespHeader);
 
                 var packetToSend = Buffer.concat([header, encryptedContinue]);

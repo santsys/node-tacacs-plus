@@ -98,17 +98,37 @@ function isFlagSet(value, flag) {
     return ((value & flag) == flag);
 }
 
+/**
+ * Creates a version value using the major and minor versions.
+ * @param {any} majorVersion The major version.
+ * @param {any} minorVersion The minor version.
+ * @returns {Number} Returns a combined version number.
+ */
 exports.createVersion = function (majorVersion, minorVersion) {
     return ((majorVersion & 0xf) << 4) | (minorVersion & 0xf);
-}
+};
 
+/**
+ * Splits a version number into major and minor version.
+ * @param {any} version The version number
+ * @returns {any} An object containing a majorVersion and minorVersion property.
+ */
 exports.splitVersion = function (version) {
     return {
         majorVersion: ((version >> 4) & 0xf),
         minorVersion: (version & 0xf)
-    }
-}
+    };
+};
 
+/**
+ * Creates the data hash used for encryption/decryption.
+ * @param {any} session_id The session id.
+ * @param {any} key The shared key.
+ * @param {any} version The version.
+ * @param {any} seq_no The sequence number.
+ * @param {Buffer|string} prevHash The previous hash value.
+ * @returns {Buffer} A md5 hash.
+ */
 exports.createDataHashWithPrevHash = function (session_id, key, version, seq_no, prevHash) {
     if (!crypto) {
         throw new Error('Encryption is not supported.');
@@ -139,8 +159,17 @@ exports.createDataHashWithPrevHash = function (session_id, key, version, seq_no,
 
     md5.update(hashBuffer);
     return md5.digest();
-}
+};
 
+/**
+ * Encodes the buffer of data.
+ * @param {any} session_id The session id.
+ * @param {any} key The skared key.
+ * @param {any} version The version number.
+ * @param {any} seq_no The sequence number.
+ * @param {any} rawData The raw data to encode.
+ * @returns {Buffer} The encoded buffer.
+ */
 exports.encodeByteData = function (session_id, key, version, seq_no, rawData) {
 
     var dataLen = rawData.length;
@@ -158,12 +187,26 @@ exports.encodeByteData = function (session_id, key, version, seq_no, rawData) {
     }
 
     return bOut;
-}
+};
 
+/**
+ * Decodes the buffer (encode and decode operations are the same underlying function).
+ * @param {any} session_id The session id.
+ * @param {any} key The skared key.
+ * @param {any} version The version number.
+ * @param {any} seq_no The sequence number.
+ * @param {any} rawData The raw data to encode.
+ * @returns {Buffer} The decoded buffer.
+ */
 exports.decodeByteData = function (session_id, key, version, seq_no, rawData) {
     return exports.encodeByteData(session_id, key, version, seq_no, rawData);
-}
+};
 
+/**
+ * Decodes a TACACS+ header.
+ * @param {Buffer} rawData A Buffer containing the raw header data.
+ * @returns {any} Returns a response object containing a decoded header and rawData buffer containing the remaining body.
+ */
 exports.decodeHeader = function (rawData) {
 
     if (!rawData) {
@@ -210,8 +253,13 @@ exports.decodeHeader = function (rawData) {
         rawData: (data.length > 0 ? data.slice(12, 12 + length) : null)
     };
     return response;
-}
+};
 
+/**
+ * Creates a buffer containing a TACACS+ header.
+ * @param {any} options The TACACS+ header options to be encoded.
+ * @returns {Buffer} A buffer containg an encoded TACACS+ header.
+ */
 exports.createHeader = function (options) {
     options = options || {
         majorVersion: 0x0,
@@ -231,8 +279,13 @@ exports.createHeader = function (options) {
     data.writeUInt32BE(options.sessionId, 4);
     data.writeUInt32BE(options.length, 8);
     return data;
-}
+};
 
+/**
+ * Decodes a data packet and handles basic authentication decode routing.
+ * @param {any} packetData The packet data to decode.
+ * @returns {any} An object containing the decoded data.
+ */
 exports.decodePacket = function decodePacket(packetData) {
 
     if (!packetData) {
@@ -267,29 +320,30 @@ exports.decodePacket = function decodePacket(packetData) {
         // parse the response into the object, if we can
         // a lot of this is based on the workflow used in the server implementation
         // so you may have to do this on your own
-        if (response.header.type == exports.TAC_PLUS_AUTHEN) {
+        if (response.header.type === exports.TAC_PLUS_AUTHEN) {
             var seqModTwo = response.header.sequenceNumber % 2;
 
-            if (response.header.sequenceNumber == 1) {
-                response.data = exports.decodeAuthStart(response.rawData);
+            if (response.header.sequenceNumber === 1) {
+                response.data = exports.decodeAuthStart(response.rawData, response.header.length);
             }
-            else if (seqModTwo == 0) {
-                response.data = exports.decodeAuthReply(response.rawData);
+            else if (seqModTwo === 0) {
+                response.data = exports.decodeAuthReply(response.rawData, response.header.length);
             }
-            else if (seqModTwo == 1) {
-                response.data = exports.decodeAuthContinue(response.rawData);
+            else if (seqModTwo === 1) {
+                response.data = exports.decodeAuthContinue(response.rawData, response.header.length);
             }
         }
     }
-    else {
-        console.log('No body data to decode.');
-    }
 
     return response;
-}
+};
 
 // *** Authentication ***
-
+/**
+ * Creates an authentication start buffer.
+ * @param {any} options The options to be encoded into an authentication start buffer.
+ * @returns {Buffer} A buffer containing the authentication start details.
+ */
 exports.createAuthStart = function (options) {
 
     options = options || {
@@ -354,9 +408,15 @@ exports.createAuthStart = function (options) {
     }
 
     return buff;
-}
+};
 
-exports.decodeAuthStart = function (data) {
+/**
+ * Decodes an authentication start message.
+ * @param {any} data A buffer containing the authentication start details.
+ * @param {any} headerDataLength The length defined in the header for the message.
+ * @returns {any} An object containing the decoded information.
+ */
+exports.decodeAuthStart = function (data, headerDataLength) {
 
     if (data.length < 8) {
         throw new Error('Invalid body header length.');
@@ -385,7 +445,7 @@ exports.decodeAuthStart = function (data) {
     }
 
     if (response.portLen > 0) {
-        port = data.slice(currentPosition, currentPosition + response.portLen).toString('ascii')
+        port = data.slice(currentPosition, currentPosition + response.portLen).toString('ascii');
         currentPosition += response.portLen;
     }
 
@@ -404,9 +464,18 @@ exports.decodeAuthStart = function (data) {
     response.remAddr = remAddr;
     response.data = dataBody;
 
-    return response;
-}
+    if (currentPostion !== headerDataLength) {
+        throw new Error('Data length mismatch. If using encryption please verify your keys are correct.');
+    }
 
+    return response;
+};
+
+/**
+ * Creates an authentication reply buffer.
+ * @param {any} options The options to be encoded into an auth reply buffer.
+ * @returns {Buffer} Returns a buffer containing the authentication reply details.
+ */
 exports.createAuthReply = function (options) {
     options = options || {
         status: exports.TAC_PLUS_AUTHEN_STATUS_ERROR,
@@ -434,7 +503,7 @@ exports.createAuthReply = function (options) {
         resp.writeUInt16BE(0, offset);
     }
     offset += 2;
-    
+
     if (options.data) {
         resp.writeUInt16BE(options.data.length, offset);
     }
@@ -459,9 +528,15 @@ exports.createAuthReply = function (options) {
     }
 
     return resp;
-}
+};
 
-exports.decodeAuthReply = function (data) {
+/**
+ * Decodes an authentication reply message.
+ * @param {Buffer} data The raw buffer containing the auth reply.
+ * @param {Number} headerDataLength The length specified in the header (used for verification).
+ * @returns {any} Returns a decoded auth reply message.
+ */
+exports.decodeAuthReply = function (data, headerDataLength) {
     if (data.length < 6) {
         throw new Error('Invalid reply header length.');
     }
@@ -487,12 +562,21 @@ exports.decodeAuthReply = function (data) {
 
     if (dataLen > 0) {
         response.data = data.slice(pos, pos + dataLen).toString('utf8');
-        pos += dataLen; 
+        pos += dataLen;
+    }
+
+    if (pos !== headerDataLength) {
+        throw new Error('Data length mismatch. If using encryption please verify your keys are correct.');
     }
 
     return response;
-}
+};
 
+/**
+ * Creates an Authentication Continue buffer.
+ * @param {any} options The options to be encoded into the buffer.
+ * @returns {Buffer} The Authentication Continue buffer.
+ */
 exports.createAuthContinue = function (options) {
     options = options || {};
 
@@ -528,9 +612,15 @@ exports.createAuthContinue = function (options) {
     }
 
     return resp;
-}
+};
 
-exports.decodeAuthContinue = function (data) {
+/**
+ * Decodes an authentication continue buffer.
+ * @param {Buffer} data The buffer containing the auth continue data.
+ * @param {Number} headerDataLength The length specified in the header (used for verification).
+ * @returns {any} Returns a decoded auth continue message.
+ */
+exports.decodeAuthContinue = function (data, headerDataLength) {
     if (data.length < 5) {
         throw new Error('Invalid continue header length.');
     }
@@ -544,6 +634,11 @@ exports.decodeAuthContinue = function (data) {
     var userMsg = uMsgLen > 0 ? data.slice(5, 5 + uMsgLen).toString('ascii') : null;
     var dataMsg = dataLen > 0 ? data.slice(5 + uMsgLen, 5 + uMsgLen + dataLen).toString('utf8') : null;
 
+    var pos = 5 + uMsgLen + dataLen;
+    if (pos !== headerDataLength) {
+        throw new Error('Data length mismatch. If using encryption please verify your keys are correct.');
+    }
+
     return {
         userMessageLength: uMsgLen,
         dataLength: dataLen,
@@ -551,9 +646,14 @@ exports.decodeAuthContinue = function (data) {
         userMessage: userMsg,
         data: dataMsg
     };
-}
+};
 
 // *** Authorization ***
+/**
+ * Creates an authorization request buffer.
+ * @param {any} options The options for the request.
+ * @returns {Buffer} Returns a buffer containing the authorization resquest.
+ */
 exports.createAuthorizationRequest = function (options) {
     options = options || {
         authenMethod: exports.TAC_PLUS_AUTHEN_METH_NOT_SET,
@@ -634,8 +734,13 @@ exports.createAuthorizationRequest = function (options) {
     }
 
     return resp;
-}
+};
 
+/**
+ * Taks a buffer and decodes it to an authorization request object.
+ * @param {Buffer} data A buffer containing the raw authorization request data.
+ * @returns {any} Returns a decoded authorization request object.
+ */
 exports.decodeAuthorizationRequest = function (data) {
     var resp = {
         authenMethod: exports.TAC_PLUS_AUTHEN_METH_NOT_SET,
@@ -697,8 +802,13 @@ exports.decodeAuthorizationRequest = function (data) {
     }
 
     return resp;
-}
+};
 
+/**
+ * Creates an authorization response buffer from a set of options.
+ * @param {any} options The options to be converted into a buffer.
+ * @returns {Buffer} Returns a buffer containing the authorization response data.
+ */
 exports.createAuthorizationResponse = function (options) {
     options = options || {
         status: exports.TAC_PLUS_AUTHOR_STATUS_ERROR,
@@ -767,8 +877,13 @@ exports.createAuthorizationResponse = function (options) {
     }
 
     return resp;
-}
+};
 
+/**
+ * Taks a buffer and decodes it to an authorization response object.
+ * @param {Buffer} data A buffer containing the raw authorization response data.
+ * @returns {any} Returns a decoded authorization response object.
+ */
 exports.decodeAuthorizationResponse = function (data) {
     var resp = {
         status: exports.TAC_PLUS_AUTHOR_STATUS_ERROR,
@@ -818,4 +933,4 @@ exports.decodeAuthorizationResponse = function (data) {
     }
 
     return resp;
-}
+};

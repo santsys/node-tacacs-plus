@@ -35,7 +35,6 @@
     <Compile Include="examples\authorizations.js" />
     <Compile Include="examples\client.js" />
     <Compile Include="examples\example.js" />
-    <Compile Include="examples\test-client.js" />
     <Compile Include="tacacs-plus.js" />
     <Content Include=".gitignore" />
     <Content Include="LICENSE" />

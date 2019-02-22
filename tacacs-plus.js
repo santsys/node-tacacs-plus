@@ -93,6 +93,16 @@ exports.TAC_PLUS_AUTHOR_STATUS_FAIL = 0x10;
 exports.TAC_PLUS_AUTHOR_STATUS_ERROR = 0x11;
 exports.TAC_PLUS_AUTHOR_STATUS_FOLLOW = 0x21;
 
+// accounting - flags
+exports.TAC_PLUS_ACCT_FLAG_START = 0x02;
+exports.TAC_PLUS_ACCT_FLAG_STOP = 0x04;
+exports.TAC_PLUS_ACCT_FLAG_WATCHDOG = 0x08;
+
+// accounting - status
+exports.TAC_PLUS_ACCT_STATUS_SUCCESS = 0x01;
+exports.TAC_PLUS_ACCT_STATUS_ERROR = 0x02;
+exports.TAC_PLUS_ACCT_STATUS_FOLLOW = 0x21;
+
 // helpers
 function isFlagSet(value, flag) {
     return ((value & flag) == flag);
@@ -333,6 +343,22 @@ exports.decodePacket = function decodePacket(packetData) {
                 response.data = exports.decodeAuthContinue(response.rawData, response.header.length);
             }
         }
+        else if (response.header.type === exports.TAC_PLUS_AUTHOR) {
+            if (response.header.sequenceNumber === 1) {
+                response.data = exports.decodeAuthorizationRequest(response.rawData, response.header.length);
+            }
+            else if (response.header.sequenceNumber === 2) {
+                response.data = exports.decodeAuthorizationResponse(response.rawData, response.header.length);
+            }
+        }
+        else if (response.header.type === exports.TAC_PLUS_ACCT) {
+            if (response.header.sequenceNumber === 1) {
+                response.data = exports.decodeAccountingRequest(response.rawData, response.header.length);
+            }
+            else if (response.header.sequenceNumber === 2) {
+                response.data = exports.decodeAccountingResponse(response.rawData, response.header.length);
+            }
+        }
     }
 
     return response;
@@ -417,6 +443,9 @@ exports.createAuthStart = function (options) {
  * @returns {any} An object containing the decoded information.
  */
 exports.decodeAuthStart = function (data, headerDataLength) {
+    if (!(data instanceof Buffer)) {
+        throw new Error('Data must be a Buffer.');
+    }
 
     if (data.length < 8) {
         throw new Error('Invalid body header length.');
@@ -464,7 +493,7 @@ exports.decodeAuthStart = function (data, headerDataLength) {
     response.remAddr = remAddr;
     response.data = dataBody;
 
-    if (currentPostion !== headerDataLength) {
+    if (headerDataLength !== undefined && currentPostion !== headerDataLength) {
         throw new Error('Data length mismatch. If using encryption please verify your keys are correct.');
     }
 
@@ -537,13 +566,14 @@ exports.createAuthReply = function (options) {
  * @returns {any} Returns a decoded auth reply message.
  */
 exports.decodeAuthReply = function (data, headerDataLength) {
-    if (data.length < 6) {
-        throw new Error('Invalid reply header length.');
-    }
     if (!(data instanceof Buffer)) {
         throw new Error('Data must be a Buffer.');
     }
 
+    if (data.length < 6) {
+        throw new Error('Invalid reply header length.');
+    }
+    
     var response = {
         status: (data.readUInt8(0) & 0xf),
         flags: (data.readUInt8(1) & 0xf),
@@ -565,7 +595,7 @@ exports.decodeAuthReply = function (data, headerDataLength) {
         pos += dataLen;
     }
 
-    if (pos !== headerDataLength) {
+    if (headerDataLength !== undefined && pos !== headerDataLength) {
         throw new Error('Data length mismatch. If using encryption please verify your keys are correct.');
     }
 
@@ -621,11 +651,12 @@ exports.createAuthContinue = function (options) {
  * @returns {any} Returns a decoded auth continue message.
  */
 exports.decodeAuthContinue = function (data, headerDataLength) {
-    if (data.length < 5) {
-        throw new Error('Invalid continue header length.');
-    }
     if (!(data instanceof Buffer)) {
         throw new Error('Data must be a Buffer.');
+    }
+
+    if (data.length < 5) {
+        throw new Error('Invalid continue header length.');
     }
 
     var uMsgLen = data.readUInt16BE(0);
@@ -635,7 +666,7 @@ exports.decodeAuthContinue = function (data, headerDataLength) {
     var dataMsg = dataLen > 0 ? data.slice(5 + uMsgLen, 5 + uMsgLen + dataLen).toString('utf8') : null;
 
     var pos = 5 + uMsgLen + dataLen;
-    if (pos !== headerDataLength) {
+    if (headerDataLength !== undefined && pos !== headerDataLength) {
         throw new Error('Data length mismatch. If using encryption please verify your keys are correct.');
     }
 
@@ -739,9 +770,10 @@ exports.createAuthorizationRequest = function (options) {
 /**
  * Taks a buffer and decodes it to an authorization request object.
  * @param {Buffer} data A buffer containing the raw authorization request data.
+ * @param {Number} headerDataLength The length specified in the header (used for verification).
  * @returns {any} Returns a decoded authorization request object.
  */
-exports.decodeAuthorizationRequest = function (data) {
+exports.decodeAuthorizationRequest = function (data, headerDataLength) {
     var resp = {
         authenMethod: exports.TAC_PLUS_AUTHEN_METH_NOT_SET,
         privLvl: exports.TAC_PLUS_PRIV_LVL_USER,
@@ -753,12 +785,12 @@ exports.decodeAuthorizationRequest = function (data) {
         args: []
     };
 
-    if (data.length < 8) {
-        throw new Error('Invalid header length.');
-    }
-
     if (!(data instanceof Buffer)) {
         throw new Error('Data must be a Buffer.');
+    }
+
+    if (data.length < 8) {
+        throw new Error('Invalid header length.');
     }
 
     var offset = 0;
@@ -799,6 +831,10 @@ exports.decodeAuthorizationRequest = function (data) {
             resp.args[i] = data.slice(offset, offset + argLens[i]).toString('ascii');
             offset += argLens[i];
         }
+    }
+
+    if (headerDataLength !== undefined && offset !== headerDataLength) {
+        throw new Error('Data length mismatch. If using encryption please verify your keys are correct.');
     }
 
     return resp;
@@ -882,9 +918,10 @@ exports.createAuthorizationResponse = function (options) {
 /**
  * Taks a buffer and decodes it to an authorization response object.
  * @param {Buffer} data A buffer containing the raw authorization response data.
+ * @param {Number} headerDataLength The length specified in the header (used for verification).
  * @returns {any} Returns a decoded authorization response object.
  */
-exports.decodeAuthorizationResponse = function (data) {
+exports.decodeAuthorizationResponse = function (data, headerDataLength) {
     var resp = {
         status: exports.TAC_PLUS_AUTHOR_STATUS_ERROR,
         serverMessage: '',
@@ -892,12 +929,12 @@ exports.decodeAuthorizationResponse = function (data) {
         args: []
     };
 
-    if (data.length < 6) {
-        throw new Error('Invalid header length.');
-    }
-
     if (!(data instanceof Buffer)) {
         throw new Error('Data must be a Buffer.');
+    }
+
+    if (data.length < 6) {
+        throw new Error('Invalid header length.');
     }
 
     var offset = 0;
@@ -930,6 +967,266 @@ exports.decodeAuthorizationResponse = function (data) {
             resp.args[i] = data.slice(offset, offset + argLens[i]).toString('ascii');
             offset += argLens[i];
         }
+    }
+
+    if (headerDataLength !== undefined && offset !== headerDataLength) {
+        throw new Error('Data length mismatch. If using encryption please verify your keys are correct.');
+    }
+
+    return resp;
+};
+
+/**
+ * Creates an accounting request buffer.
+ * @param {any} options The options for the request.
+ * @returns {Buffer} Returns a buffer containing the accounting resquest.
+ */
+exports.createAccountingRequest = function (options) {
+    options = options || {
+        flags: exports.TAC_PLUS_ACCT_FLAG_START,
+        authenMethod: exports.TAC_PLUS_AUTHEN_METH_NOT_SET,
+        privLvl: exports.TAC_PLUS_PRIV_LVL_USER,
+        authenType: exports.TAC_PLUS_AUTHEN_TYPE_ASCII,
+        authenService: exports.TAC_PLUS_AUTHEN_TYPE_NOT_SET,
+        user: '',
+        port: '',
+        remAddr: '',
+        args: []
+    };
+
+    if (options.args && !(options.args instanceof Array)) {
+        throw new Error('The args should be an array of string values.');
+    }
+
+    options.args = options.args || [];
+    options.user = options.user || '';
+    options.port = options.port || '';
+    options.remAddr = options.remAddr || '';
+
+    if (options.args.length > 255) {
+        throw new Error('You can not have more than 255 args.');
+    }
+
+    var argSize = 0;
+    for (var i = 0; i < options.args.length; i++) {
+        argSize += (options.args[i].length & 0xff);
+    }
+
+    var resp = Buffer.alloc(9 + options.user.length + options.port.length + options.remAddr.length + options.args.length + argSize);
+    var offset = 0;
+
+    resp.writeUInt8(options.flags, offset++);
+    resp.writeUInt8(options.authenMethod, offset++);
+    resp.writeUInt8(options.privLvl, offset++);
+    resp.writeUInt8(options.authenType, offset++);
+    resp.writeUInt8(options.authenService, offset++);
+    resp.writeUInt8(options.user.length, offset++);
+    resp.writeUInt8(options.port.length, offset++);
+    resp.writeUInt8(options.remAddr.length, offset++);
+
+    if (options.args && options.args.length > 0) {
+        resp.writeUInt8((options.args.length & 0xff), offset++);
+
+        for (var i = 0; i < options.args.length; i++) {
+            resp.writeUInt8((options.args[i].length & 0xff), offset++);
+        }
+    }
+    else {
+        resp.writeUInt8(0, offset++);
+    }
+
+    if (options.user.length > 0) {
+        resp.write(options.user, offset);
+        offset += options.user.length;
+    }
+
+    if (options.port.length > 0) {
+        resp.write(options.port, offset);
+        offset += options.port.length;
+    }
+
+    if (options.remAddr.length > 0) {
+        resp.write(options.remAddr, offset);
+        offset += options.remAddr.length;
+    }
+
+    if (options.args && options.args.length > 0) {
+        for (var i = 0; i < options.args.length; i++) {
+            var value = options.args[i];
+            if (value.length > 0xff) {
+                value = value.substring(0, 0xff);
+            }
+
+            resp.write(value, offset);
+            offset += value.length;
+        }
+    }
+
+    return resp;
+};
+
+/**
+ * Taks a buffer and decodes it to an accounting request object.
+ * @param {Buffer} data A buffer containing the raw accounting request data.
+ * @param {Number} headerDataLength The length specified in the header (used for verification).
+ * @returns {any} Returns a decoded accounting request object.
+ */
+exports.decodeAccountingRequest = function (data, headerDataLength) {
+    var resp = {
+        flags: exports.TAC_PLUS_ACCT_FLAG_START,
+        authenMethod: exports.TAC_PLUS_AUTHEN_METH_NOT_SET,
+        privLvl: exports.TAC_PLUS_PRIV_LVL_USER,
+        authenType: exports.TAC_PLUS_AUTHEN_TYPE_ASCII,
+        authenService: exports.TAC_PLUS_AUTHEN_TYPE_NOT_SET,
+        user: '',
+        port: '',
+        remAddr: '',
+        args: []
+    };
+
+    if (!(data instanceof Buffer)) {
+        throw new Error('Data must be a Buffer.');
+    }
+
+    if (data.length < 8) {
+        throw new Error('Invalid header length.');
+    }
+
+    var offset = 0;
+    resp.flags = data.readUInt8(offset++);
+    resp.authenMethod = data.readUInt8(offset++);
+    resp.privLvl = data.readUInt8(offset++);
+    resp.authenType = data.readUInt8(offset++);
+    resp.authenService = data.readUInt8(offset++);
+
+    var userLen = data.readUInt8(offset++);
+    var portLen = data.readUInt8(offset++);
+    var remAddrLen = data.readUInt8(offset++);
+    var argCnt = data.readUInt8(offset++);
+    var argLens = [];
+
+    if (argCnt > 0) {
+        for (var i = 0; i < argCnt; i++) {
+            argLens[i] = data.readUInt8(offset++);
+        }
+    }
+
+    if (userLen > 0) {
+        resp.user = data.slice(offset, offset + userLen).toString('ascii');
+        offset += userLen;
+    }
+
+    if (portLen > 0) {
+        resp.port = data.slice(offset, offset + portLen).toString('ascii');
+        offset += portLen;
+    }
+
+    if (remAddrLen > 0) {
+        resp.remAddr = data.slice(offset, offset + remAddrLen).toString('ascii');
+        offset += remAddrLen;
+    }
+
+    if (argCnt > 0) {
+        for (var i = 0; i < argCnt; i++) {
+            resp.args[i] = data.slice(offset, offset + argLens[i]).toString('ascii');
+            offset += argLens[i];
+        }
+    }
+
+    if (headerDataLength !== undefined && offset !== headerDataLength) {
+        throw new Error('Data length mismatch. If using encryption please verify your keys are correct.');
+    }
+
+    return resp;
+};
+
+
+/**
+ * Creates an accounting response buffer from a set of options.
+ * @param {any} options The options to be converted into a buffer.
+ * @returns {Buffer} Returns a buffer containing the accounting response data.
+ */
+exports.createAccountingResponse = function (options) {
+    options = options || {
+        status: exports.TAC_PLUS_ACCT_STATUS_ERROR,
+        serverMessage: '',
+        data: ''
+    };
+
+    options.serverMessage = options.serverMessage || '';
+    options.data = options.data || '';
+
+    var offset = 0;
+    var resp = Buffer.alloc(5 + options.serverMessage.length + options.data.length);
+
+    resp.writeUInt16BE(options.serverMessage.length & 0xffff, offset);
+    offset += 2;
+
+    resp.writeUInt16BE(options.data.length & 0xffff, offset);
+    offset += 2;
+
+    resp.writeUInt8(options.status & 0xff, offset++);
+
+    if (options.serverMessage.length > 0) {
+        if (options.serverMessage.length > 0xffff) {
+            options.serverMessage = options.serverMessage.substring(0, 0xffff);
+        }
+        resp.write(options.serverMessage, offset);
+        offset += options.serverMessage.length;
+    }
+
+    if (options.data.length > 0) {
+        if (options.data.length > 0xffff) {
+            options.data = options.data.substring(0, 0xffff);
+        }
+        resp.write(options.data, offset);
+        offset += options.data.length;
+    }
+
+    return resp;
+};
+
+/**
+ * Taks a buffer and decodes it to an accounting response object.
+ * @param {Buffer} data A buffer containing the raw accounting response data.
+ * @param {Number} headerDataLength The length specified in the header (used for verification).
+ * @returns {any} Returns a decoded accounting response object.
+ */
+exports.decodeAccountingResponse = function (data, headerDataLength) {
+    var resp = {
+        status: exports.TAC_PLUS_ACCT_STATUS_ERROR,
+        serverMessage: '',
+        data: ''
+    };
+
+    if (!(data instanceof Buffer)) {
+        throw new Error('Data must be a Buffer.');
+    }
+
+    if (data.length < 5) {
+        throw new Error('Invalid header length.');
+    }
+
+    var offset = 0;
+
+    var msgLen = data.readUInt16BE(offset);
+    offset += 2;
+    var dataLen = data.readUInt16BE(offset);
+    offset += 2;
+    resp.status = data.readUInt8(offset++);
+
+    if (msgLen > 0) {
+        resp.serverMessage = data.slice(offset, offset + msgLen).toString('ascii');
+        offset += msgLen;
+    }
+
+    if (dataLen > 0) {
+        resp.data = data.slice(offset, offset + dataLen).toString('ascii');
+        offset += dataLen;
+    }
+
+    if (headerDataLength !== undefined && offset !== headerDataLength) {
+        throw new Error('Data length mismatch. If using encryption please verify your keys are correct.');
     }
 
     return resp;

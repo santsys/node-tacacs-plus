@@ -493,7 +493,7 @@ exports.decodeAuthStart = function (data, headerDataLength) {
     response.remAddr = remAddr;
     response.data = dataBody;
 
-    if (headerDataLength !== undefined && currentPostion !== headerDataLength) {
+    if (headerDataLength !== undefined && currentPosition !== headerDataLength) {
         throw new Error('Data length mismatch. If using encryption please verify your keys are correct.');
     }
 

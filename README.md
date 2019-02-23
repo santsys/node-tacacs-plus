@@ -329,7 +329,7 @@ console.log('Author Response: ' + JSON.stringify(decodedResp));
 ```
 
 # Testing Server
-A good and easy to spin up testing server is tac_plus running in a docker container. If you have docker setup, simply run the following to start the tac_plus container. More inforamtion is available here, https://hub.docker.com/r/dchidell/docker-tacacs.
+A good and easy to spin up testing server is tac_plus running in a docker container. If you have docker setup, simply run the following to start the tac_plus container. More information is available here, https://hub.docker.com/r/dchidell/docker-tacacs.
 
 ```cmd
 sudo docker run -it --rm -p 49:49 dchidell/docker-tacacs
